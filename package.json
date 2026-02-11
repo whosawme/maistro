@@ -4,6 +4,11 @@
   "description": "Visualize Claude Code subagent spawning, progress, and tasks in real-time",
   "version": "0.1.0",
   "publisher": "maistro",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/whosawme/maistro.git"
+  },
+  "license": "MIT",
   "engines": {
     "vscode": "^1.95.0",
     "node": ">=20.0.0"

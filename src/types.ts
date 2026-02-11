@@ -156,7 +156,7 @@ export interface TaskSpawnInfo {
 // Configuration
 // ============================================================
 
-export interface MaestroConfig {
+export interface MaistroConfig {
   claudeHomePath: string;
   maxSessionsDisplayed: number;
   watcherPollIntervalMs: number;

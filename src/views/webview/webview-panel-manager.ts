@@ -22,8 +22,8 @@ export class WebviewPanelManager implements vscode.Disposable {
     if (!subagent) return;
 
     const panel = vscode.window.createWebviewPanel(
-      'maestroSubagentDetail',
-      `Maestro: ${subagent.description || subagent.slug || subagent.agentId}`,
+      'maistroSubagentDetail',
+      `Maistro: ${subagent.description || subagent.slug || subagent.agentId}`,
       vscode.ViewColumn.Beside,
       {
         enableScripts: true,

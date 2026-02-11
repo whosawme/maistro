@@ -8,14 +8,14 @@ export class StatusBarManager implements vscode.Disposable {
       vscode.StatusBarAlignment.Left,
       100,
     );
-    this.statusBarItem.command = 'maestro.refresh';
-    this.statusBarItem.name = 'Maestro';
+    this.statusBarItem.command = 'maistro.refresh';
+    this.statusBarItem.name = 'Maistro';
     this.update(0);
   }
 
   update(activeCount: number): void {
     if (activeCount > 0) {
-      this.statusBarItem.text = `$(sync~spin) Maestro: ${activeCount} active`;
+      this.statusBarItem.text = `$(sync~spin) Maistro: ${activeCount} active`;
       this.statusBarItem.tooltip = `${activeCount} active subagent${activeCount !== 1 ? 's' : ''}`;
       this.statusBarItem.show();
     } else {

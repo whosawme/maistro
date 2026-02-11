@@ -6,7 +6,7 @@ import { SubagentTreeProvider } from './views/tree/subagent-tree-provider';
 import { WebviewPanelManager } from './views/webview/webview-panel-manager';
 import { StatusBarManager } from './views/statusbar/status-bar-manager';
 import { resolveClaudeProjectsPath } from './utils/paths';
-import { MaestroConfig } from './types';
+import { MaistroConfig } from './types';
 
 export function activate(context: vscode.ExtensionContext): void {
   const config = loadConfig();
@@ -19,7 +19,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // Views
   const treeProvider = new SubagentTreeProvider(store);
-  const treeView = vscode.window.createTreeView('maestro.sessionTree', {
+  const treeView = vscode.window.createTreeView('maistro.sessionTree', {
     treeDataProvider: treeProvider,
     showCollapseAll: true,
   });
@@ -28,23 +28,23 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // Commands
   context.subscriptions.push(
-    vscode.commands.registerCommand('maestro.refresh', () => {
+    vscode.commands.registerCommand('maistro.refresh', () => {
       discovery.rescan();
       treeProvider.refresh();
     }),
-    vscode.commands.registerCommand('maestro.openDetail', (agentId: string) => {
+    vscode.commands.registerCommand('maistro.openDetail', (agentId: string) => {
       webviewManager.openOrReveal(agentId);
     }),
-    vscode.commands.registerCommand('maestro.openTranscript', (filePath: string) => {
+    vscode.commands.registerCommand('maistro.openTranscript', (filePath: string) => {
       vscode.workspace
         .openTextDocument(vscode.Uri.file(filePath))
         .then((doc) => vscode.window.showTextDocument(doc));
     }),
-    vscode.commands.registerCommand('maestro.clearSessions', () => {
+    vscode.commands.registerCommand('maistro.clearSessions', () => {
       store.clearInactiveSessions();
       treeProvider.refresh();
     }),
-    vscode.commands.registerCommand('maestro.copyAgentId', (agentId: string) => {
+    vscode.commands.registerCommand('maistro.copyAgentId', (agentId: string) => {
       vscode.env.clipboard.writeText(agentId);
       vscode.window.showInformationMessage(`Copied agent ID: ${agentId}`);
     }),
@@ -72,7 +72,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // Config changes
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration('maestro')) {
+      if (e.affectsConfiguration('maistro')) {
         watcher.updateConfig(loadConfig());
         treeProvider.refresh();
       }
@@ -93,8 +93,8 @@ export function deactivate(): void {
   // Disposables are cleaned up via context.subscriptions
 }
 
-function loadConfig(): MaestroConfig {
-  const c = vscode.workspace.getConfiguration('maestro');
+function loadConfig(): MaistroConfig {
+  const c = vscode.workspace.getConfiguration('maistro');
   return {
     claudeHomePath: c.get<string>('claudeHomePath', ''),
     maxSessionsDisplayed: c.get<number>('maxSessionsDisplayed', 10),

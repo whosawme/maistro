@@ -3,7 +3,7 @@ import * as path from 'path';
 import { SessionStore } from '../state/session-store';
 import { SessionDiscovery } from './session-discovery';
 import { FileTailer } from './file-tailer';
-import { MaestroConfig } from '../types';
+import { MaistroConfig } from '../types';
 import { isCompactAgent, extractAgentIdFromPath, extractSessionIdFromPath } from '../utils/paths';
 
 export class TranscriptWatcher implements vscode.Disposable {
@@ -15,7 +15,7 @@ export class TranscriptWatcher implements vscode.Disposable {
     private claudeProjectsPath: string,
     private store: SessionStore,
     private discovery: SessionDiscovery,
-    private config: MaestroConfig,
+    private config: MaistroConfig,
   ) {
     this.setupWatchers();
     this.setupPolling();
@@ -86,7 +86,7 @@ export class TranscriptWatcher implements vscode.Disposable {
     }
   }
 
-  updateConfig(config: MaestroConfig): void {
+  updateConfig(config: MaistroConfig): void {
     this.config = config;
     if (this.pollInterval) clearInterval(this.pollInterval);
     this.setupPolling();

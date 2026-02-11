@@ -1,9 +1,9 @@
 {
-  "name": "maestro",
-  "displayName": "Maestro",
+  "name": "maistro",
+  "displayName": "Maistro",
   "description": "Visualize Claude Code subagent spawning, progress, and tasks in real-time",
   "version": "0.1.0",
-  "publisher": "maestro",
+  "publisher": "maistro",
   "engines": {
     "vscode": "^1.95.0",
     "node": ">=20.0.0"
@@ -20,16 +20,16 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "maestro",
-          "title": "Maestro",
-          "icon": "resources/icons/maestro.svg"
+          "id": "maistro",
+          "title": "Maistro",
+          "icon": "resources/icons/maistro.svg"
         }
       ]
     },
     "views": {
-      "maestro": [
+      "maistro": [
         {
-          "id": "maestro.sessionTree",
+          "id": "maistro.sessionTree",
           "name": "Sessions & Subagents",
           "type": "tree"
         }
@@ -37,87 +37,87 @@
     },
     "commands": [
       {
-        "command": "maestro.refresh",
+        "command": "maistro.refresh",
         "title": "Refresh",
         "icon": "$(refresh)",
-        "category": "Maestro"
+        "category": "Maistro"
       },
       {
-        "command": "maestro.openDetail",
+        "command": "maistro.openDetail",
         "title": "Open Subagent Detail",
-        "category": "Maestro"
+        "category": "Maistro"
       },
       {
-        "command": "maestro.openTranscript",
+        "command": "maistro.openTranscript",
         "title": "Open Raw Transcript",
-        "category": "Maestro"
+        "category": "Maistro"
       },
       {
-        "command": "maestro.clearSessions",
+        "command": "maistro.clearSessions",
         "title": "Clear Inactive Sessions",
         "icon": "$(clear-all)",
-        "category": "Maestro"
+        "category": "Maistro"
       },
       {
-        "command": "maestro.copyAgentId",
+        "command": "maistro.copyAgentId",
         "title": "Copy Agent ID",
-        "category": "Maestro"
+        "category": "Maistro"
       }
     ],
     "menus": {
       "view/title": [
         {
-          "command": "maestro.refresh",
-          "when": "view == maestro.sessionTree",
+          "command": "maistro.refresh",
+          "when": "view == maistro.sessionTree",
           "group": "navigation"
         },
         {
-          "command": "maestro.clearSessions",
-          "when": "view == maestro.sessionTree",
+          "command": "maistro.clearSessions",
+          "when": "view == maistro.sessionTree",
           "group": "navigation"
         }
       ],
       "view/item/context": [
         {
-          "command": "maestro.openDetail",
+          "command": "maistro.openDetail",
           "when": "viewItem == subagent",
           "group": "inline"
         },
         {
-          "command": "maestro.openTranscript",
+          "command": "maistro.openTranscript",
           "when": "viewItem == subagent || viewItem == session",
           "group": "1_actions"
         },
         {
-          "command": "maestro.copyAgentId",
+          "command": "maistro.copyAgentId",
           "when": "viewItem == subagent",
           "group": "2_clipboard"
         }
       ]
     },
     "configuration": {
-      "title": "Maestro",
+      "title": "Maistro",
       "properties": {
-        "maestro.claudeHomePath": {
+        "maistro.claudeHomePath": {
           "type": "string",
           "default": "",
           "description": "Path to Claude home directory. Leave empty to use default (~/.claude)"
         },
-        "maestro.maxSessionsDisplayed": {
+        "maistro.maxSessionsDisplayed": {
           "type": "number",
           "default": 10,
           "minimum": 1,
           "maximum": 50,
           "description": "Maximum number of sessions to display in the tree view"
         },
-        "maestro.watcherPollIntervalMs": {
+        "maistro.watcherPollIntervalMs": {
           "type": "number",
           "default": 1000,
           "minimum": 500,
           "maximum": 10000,
           "description": "File watcher polling interval in milliseconds"
         },
-        "maestro.autoExpandActiveSessions": {
+        "maistro.autoExpandActiveSessions": {
           "type": "boolean",
           "default": true,
           "description": "Automatically expand sessions that have active subagents"

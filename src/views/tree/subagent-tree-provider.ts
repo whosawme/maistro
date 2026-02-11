@@ -151,7 +151,7 @@ export class SubagentTreeProvider
     );
 
     item.command = {
-      command: 'maestro.openDetail',
+      command: 'maistro.openDetail',
       title: 'Open Detail',
       arguments: [subagent.agentId],
     };

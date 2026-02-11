@@ -4,14 +4,14 @@ import * as vscode from 'vscode';
 import { SessionStore } from '../state/session-store';
 import { parseSession } from '../parsing/session-parser';
 import { parseSubagent } from '../parsing/subagent-parser';
-import { Session, Subagent, MaestroConfig, TaskSpawnInfo } from '../types';
+import { Session, Subagent, MaistroConfig, TaskSpawnInfo } from '../types';
 import { isCompactAgent, pathToProjectDir } from '../utils/paths';
 
 export class SessionDiscovery {
   constructor(
     private claudeProjectsPath: string,
     private store: SessionStore,
-    private config: MaestroConfig,
+    private config: MaistroConfig,
   ) {}
 
   async initialScan(): Promise<void> {

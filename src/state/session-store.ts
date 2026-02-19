@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events';
 import { Session, Subagent } from '../types';
+import { extractRepoName } from '../utils/paths';
 import type { Disposable } from 'vscode';
 
 export class SessionStore extends EventEmitter implements Disposable {
@@ -111,6 +112,17 @@ export class SessionStore extends EventEmitter implements Disposable {
     }
 
     this.emitActiveCount();
+  }
+
+  getSessionsByProject(): Map<string, Session[]> {
+    const grouped = new Map<string, Session[]>();
+    for (const session of this.getSessions()) {
+      const repo = extractRepoName(session);
+      const list = grouped.get(repo) || [];
+      list.push(session);
+      grouped.set(repo, list);
+    }
+    return grouped;
   }
 
   getActiveSubagentCount(): number {

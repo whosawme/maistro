@@ -37,8 +37,9 @@ export function extractSubagentData(
   let model = '';
   let startedAt = '';
   let lastTimestamp = '';
-  let status: SubagentStatus = 'unknown';
   let finalOutput: string | undefined;
+  let lastAssistantHasText = false;
+  let hasAnyAssistant = false;
   const toolCalls: ToolCall[] = [];
   const pendingToolUses = new Map<
     string,
@@ -46,7 +47,7 @@ export function extractSubagentData(
   >();
 
   for (const line of lines) {
-    if (line.type === 'progress' as string) continue;
+    if (line.type === ('progress' as string)) continue;
 
     if (!agentId && line.agentId) agentId = line.agentId;
     if (!sessionId && line.sessionId) sessionId = line.sessionId;
@@ -55,9 +56,10 @@ export function extractSubagentData(
     if (line.timestamp) lastTimestamp = line.timestamp;
 
     if (line.type === 'assistant' && line.message) {
+      hasAnyAssistant = true;
       if (line.message.model && !model) model = line.message.model;
-      if (line.message.stop_reason === 'end_turn') status = 'completed';
 
+      lastAssistantHasText = false;
       if (Array.isArray(line.message.content)) {
         for (const block of line.message.content) {
           if (block.type === 'tool_use') {
@@ -67,9 +69,11 @@ export function extractSubagentData(
               input: tu.input,
               timestamp: line.timestamp,
             });
+            lastAssistantHasText = false;
           }
           if (block.type === 'text' && (block as TextContentBlock).text.trim()) {
             finalOutput = (block as TextContentBlock).text;
+            lastAssistantHasText = true;
           }
         }
       }
@@ -111,9 +115,17 @@ export function extractSubagentData(
     }
   }
 
-  // If there are still pending tool_uses without results, likely still running
-  if (status !== 'completed' && pendingToolUses.size > 0) {
+  // Determine status from transcript shape:
+  // - pending tool_uses without results → running
+  // - last assistant message has text and no pending tools → completed
+  // - has assistant messages but none of the above → completed (finished without final text)
+  let status: SubagentStatus = 'unknown';
+  if (pendingToolUses.size > 0) {
     status = 'running';
+  } else if (lastAssistantHasText || (hasAnyAssistant && toolCalls.length > 0)) {
+    status = 'completed';
+  } else if (hasAnyAssistant) {
+    status = 'completed';
   }
 
   const tokenUsage = aggregateTokenUsage(lines);

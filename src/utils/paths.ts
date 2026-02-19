@@ -12,6 +12,15 @@ export function pathToProjectDir(fsPath: string): string {
   return fsPath.replace(/\//g, '-');
 }
 
+export function extractRepoName(session: { cwd?: string; projectPath: string }): string {
+  if (session.cwd) {
+    return path.basename(session.cwd);
+  }
+  const dirName = path.basename(session.projectPath);
+  const parts = dirName.split('-').filter(Boolean);
+  return parts[parts.length - 1] || dirName;
+}
+
 export function isCompactAgent(filePath: string): boolean {
   return path.basename(filePath).includes('acompact-');
 }

@@ -1,13 +1,13 @@
 import * as vscode from 'vscode';
 import { SessionStore } from '../../state/session-store';
 import { Session, Subagent, ToolCall, SubagentStatus } from '../../types';
-import { formatElapsed, formatTimestamp } from '../../utils/time';
+import { formatElapsed, formatTimestamp, formatRelativeTime, formatTokenCount } from '../../utils/time';
 
 export type TreeElement =
+  | { kind: 'project'; repoName: string; sessions: Session[] }
   | { kind: 'session'; session: Session }
   | { kind: 'subagent'; subagent: Subagent; session: Session }
-  | { kind: 'tool-call'; toolCall: ToolCall }
-  | { kind: 'info'; label: string; detail: string };
+  | { kind: 'tool-call'; toolCall: ToolCall };
 
 export class SubagentTreeProvider
   implements vscode.TreeDataProvider<TreeElement>
@@ -33,26 +33,36 @@ export class SubagentTreeProvider
 
   getTreeItem(element: TreeElement): vscode.TreeItem {
     switch (element.kind) {
+      case 'project':
+        return this.buildProjectItem(element.repoName, element.sessions);
       case 'session':
         return this.buildSessionItem(element.session);
       case 'subagent':
         return this.buildSubagentItem(element.subagent);
       case 'tool-call':
         return this.buildToolCallItem(element.toolCall);
-      case 'info':
-        return this.buildInfoItem(element.label, element.detail);
     }
   }
 
   getChildren(element?: TreeElement): TreeElement[] {
     if (!element) {
-      return this.store.getSessions().map((session) => ({
-        kind: 'session' as const,
-        session,
+      const grouped = this.store.getSessionsByProject();
+      return Array.from(grouped.entries()).map(([repoName, sessions]) => ({
+        kind: 'project' as const,
+        repoName,
+        sessions,
       }));
     }
 
     switch (element.kind) {
+      case 'project':
+        return element.sessions
+          .filter((s) => s.subagents.length > 0 || s.isActive)
+          .map((session) => ({
+            kind: 'session' as const,
+            session,
+          }));
+
       case 'session':
         return element.session.subagents
           .sort(
@@ -66,38 +76,50 @@ export class SubagentTreeProvider
             session: element.session,
           }));
 
-      case 'subagent': {
-        const items: TreeElement[] = [];
-
-        items.push({
-          kind: 'info',
-          label: 'Model',
-          detail: element.subagent.model || 'unknown',
-        });
-        items.push({
-          kind: 'info',
-          label: 'Tokens',
-          detail: `${element.subagent.tokenUsage.totalTokens.toLocaleString()} total`,
-        });
-        items.push({
-          kind: 'info',
-          label: 'Duration',
-          detail: formatElapsed(element.subagent.elapsedMs),
-        });
-
-        for (const tc of element.subagent.toolCalls) {
-          items.push({ kind: 'tool-call', toolCall: tc });
-        }
-        return items;
-      }
+      case 'subagent':
+        return element.subagent.toolCalls.map((tc) => ({
+          kind: 'tool-call' as const,
+          toolCall: tc,
+        }));
 
       default:
         return [];
     }
   }
 
+  private buildProjectItem(repoName: string, sessions: Session[]): vscode.TreeItem {
+    const item = new vscode.TreeItem(
+      repoName,
+      vscode.TreeItemCollapsibleState.Expanded,
+    );
+
+    const totalActive = sessions.reduce((sum, s) => sum + s.activeSubagentCount, 0);
+    const branch = sessions[0]?.gitBranch;
+
+    if (totalActive > 0) {
+      item.description = `${branch ?? ''} | ${totalActive} active`;
+      item.iconPath = new vscode.ThemeIcon('repo', new vscode.ThemeColor('charts.green'));
+    } else {
+      item.description = branch ?? '';
+      item.iconPath = new vscode.ThemeIcon('repo');
+    }
+
+    item.contextValue = 'project';
+    item.tooltip = new vscode.MarkdownString(
+      `**${repoName}**\n\n` +
+        `- Sessions: ${sessions.length}\n` +
+        `- Active agents: ${totalActive}\n` +
+        (branch ? `- Branch: ${branch}` : ''),
+    );
+
+    return item;
+  }
+
   private buildSessionItem(session: Session): vscode.TreeItem {
-    const label = session.sessionId.slice(0, 8) + '...';
+    const relTime = formatRelativeTime(session.lastActivityAt);
+    const branch = session.gitBranch ?? 'no branch';
+    const label = `Session \u00b7 ${branch} \u00b7 ${relTime}`;
+
     const item = new vscode.TreeItem(
       label,
       session.subagents.length > 0
@@ -105,36 +127,48 @@ export class SubagentTreeProvider
         : vscode.TreeItemCollapsibleState.Collapsed,
     );
 
-    item.description = `${session.subagents.length} agent${session.subagents.length !== 1 ? 's' : ''} | ${session.gitBranch ?? ''}`;
+    const agentCount = session.subagents.length;
+    const activeCount = session.activeSubagentCount;
+    if (activeCount > 0) {
+      item.description = `${activeCount} running, ${agentCount} total`;
+    } else {
+      item.description = `${agentCount} agent${agentCount !== 1 ? 's' : ''}`;
+    }
 
-    item.tooltip = new vscode.MarkdownString(
-      `**Session** \`${session.sessionId}\`\n\n` +
-        `- Branch: ${session.gitBranch ?? 'unknown'}\n` +
-        `- Started: ${formatTimestamp(session.startedAt)}\n` +
-        `- Active: ${session.activeSubagentCount}\n` +
-        `- Total: ${session.subagents.length}`,
-    );
+    item.iconPath = activeCount > 0
+      ? new vscode.ThemeIcon('comment-discussion', new vscode.ThemeColor('charts.green'))
+      : new vscode.ThemeIcon('comment-discussion');
 
     item.contextValue = 'session';
-    item.iconPath =
-      session.activeSubagentCount > 0
-        ? new vscode.ThemeIcon(
-            'pulse',
-            new vscode.ThemeColor('charts.green'),
-          )
-        : new vscode.ThemeIcon('history');
+    item.tooltip = new vscode.MarkdownString(
+      `**Session** \`${session.sessionId}\`\n\n` +
+        `- Branch: ${branch}\n` +
+        `- Started: ${formatTimestamp(session.startedAt)}\n` +
+        `- Last activity: ${formatTimestamp(session.lastActivityAt)}\n` +
+        `- Active: ${activeCount}\n` +
+        `- Total: ${agentCount}`,
+    );
 
     return item;
   }
 
   private buildSubagentItem(subagent: Subagent): vscode.TreeItem {
     const label = subagent.description || subagent.slug || subagent.agentId;
+    const hasToolCalls = subagent.toolCalls.length > 0;
+
     const item = new vscode.TreeItem(
       label,
-      vscode.TreeItemCollapsibleState.Collapsed,
+      hasToolCalls
+        ? vscode.TreeItemCollapsibleState.Collapsed
+        : vscode.TreeItemCollapsibleState.None,
     );
 
-    item.description = `${subagent.subagentType} | ${formatElapsed(subagent.elapsedMs)} | ${subagent.toolCalls.length} tools`;
+    const parts: string[] = [];
+    if (subagent.subagentType !== 'unknown') parts.push(subagent.subagentType);
+    if (subagent.elapsedMs > 0) parts.push(formatElapsed(subagent.elapsedMs));
+    if (subagent.tokenUsage.totalTokens > 0) parts.push(formatTokenCount(subagent.tokenUsage.totalTokens));
+    item.description = parts.join(' | ');
+
     item.contextValue = 'subagent';
     item.iconPath = this.getSubagentIcon(subagent.status);
 
@@ -143,7 +177,7 @@ export class SubagentTreeProvider
         `| Field | Value |\n|---|---|\n` +
         `| Type | ${subagent.subagentType} |\n` +
         `| Status | ${subagent.status} |\n` +
-        `| Model | ${subagent.model} |\n` +
+        `| Model | ${subagent.model || 'unknown'} |\n` +
         `| ID | \`${subagent.agentId}\` |\n` +
         `| Duration | ${formatElapsed(subagent.elapsedMs)} |\n` +
         `| Tools | ${subagent.toolCalls.length} |\n` +
@@ -188,15 +222,6 @@ export class SubagentTreeProvider
     return item;
   }
 
-  private buildInfoItem(label: string, detail: string): vscode.TreeItem {
-    const item = new vscode.TreeItem(
-      `${label}: ${detail}`,
-      vscode.TreeItemCollapsibleState.None,
-    );
-    item.iconPath = new vscode.ThemeIcon('info');
-    return item;
-  }
-
   private getSubagentIcon(status: SubagentStatus): vscode.ThemeIcon {
     switch (status) {
       case 'running':
@@ -206,7 +231,7 @@ export class SubagentTreeProvider
         );
       case 'completed':
         return new vscode.ThemeIcon(
-          'check',
+          'pass',
           new vscode.ThemeColor('charts.green'),
         );
       case 'error':
@@ -215,7 +240,10 @@ export class SubagentTreeProvider
           new vscode.ThemeColor('errorForeground'),
         );
       default:
-        return new vscode.ThemeIcon('question');
+        return new vscode.ThemeIcon(
+          'circle-outline',
+          new vscode.ThemeColor('descriptionForeground'),
+        );
     }
   }
 }

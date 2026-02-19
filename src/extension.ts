@@ -67,6 +67,9 @@ export function activate(context: vscode.ExtensionContext): void {
   });
   store.on('activeCount:changed', (count: number) => {
     statusBar.update(count);
+    treeView.badge = count > 0
+      ? { value: count, tooltip: `${count} active agent${count !== 1 ? 's' : ''}` }
+      : undefined;
   });
 
   // Config changes
@@ -85,7 +88,11 @@ export function activate(context: vscode.ExtensionContext): void {
   // Initial scan
   discovery.initialScan().then(() => {
     treeProvider.refresh();
-    statusBar.update(store.getActiveSubagentCount());
+    const count = store.getActiveSubagentCount();
+    statusBar.update(count);
+    treeView.badge = count > 0
+      ? { value: count, tooltip: `${count} active agent${count !== 1 ? 's' : ''}` }
+      : undefined;
   });
 }
 

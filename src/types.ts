@@ -142,6 +142,8 @@ export interface Session {
   subagents: Subagent[];
   filePath: string;
   activeSubagentCount: number;
+  awaitingInput: boolean;
+  pendingToolNames: string[];
 }
 
 export interface TaskSpawnInfo {

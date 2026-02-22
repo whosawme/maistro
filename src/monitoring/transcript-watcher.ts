@@ -51,6 +51,12 @@ export class TranscriptWatcher implements vscode.Disposable {
       this.discovery.rescan();
     });
 
+    sessionWatcher.onDidChange((uri) => {
+      if (uri.fsPath.includes('subagents')) return;
+      // Re-parse this specific session to update awaiting input state
+      this.discovery.rescanSession(uri.fsPath);
+    });
+
     this.watchers.push(subagentWatcher, sessionWatcher);
   }
 

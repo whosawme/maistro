@@ -4,6 +4,7 @@ import { formatElapsed } from '../../utils/time';
 export function generateWebviewContent(subagent: Subagent): string {
   const statusColor: Record<string, string> = {
     running: '#f0ad4e',
+    awaiting_input: '#e06c3a',
     completed: '#5cb85c',
     error: '#d9534f',
     unknown: '#999',
@@ -68,6 +69,7 @@ export function generateWebviewContent(subagent: Subagent): string {
     .progress-bar { height: 4px; background: var(--border); border-radius: 2px; margin-top: 8px; overflow: hidden; }
     .progress-fill { height: 100%; border-radius: 2px; transition: width 0.3s ease; }
     .running .progress-fill { background: #f0ad4e; animation: pulse 1.5s ease-in-out infinite; }
+    .awaiting_input .progress-fill { background: #e06c3a; animation: pulse 0.8s ease-in-out infinite; }
     .completed .progress-fill { background: #5cb85c; width: 100%; }
     @keyframes pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
     .final-output { background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px; padding: 16px; white-space: pre-wrap; font-size: 0.9em; max-height: 400px; overflow-y: auto; }

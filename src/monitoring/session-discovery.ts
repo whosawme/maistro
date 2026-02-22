@@ -15,23 +15,75 @@ export class SessionDiscovery {
   ) {}
 
   async initialScan(): Promise<void> {
-    const projectDir = this.findWorkspaceProjectDir();
-    if (!projectDir) return;
-
-    const sessions = await this.discoverSessionsInProject(projectDir);
-    sessions.sort(
-      (a, b) =>
-        new Date(b.lastActivityAt).getTime() -
-        new Date(a.lastActivityAt).getTime(),
-    );
-
-    for (const session of sessions.slice(0, this.config.maxSessionsDisplayed)) {
-      this.store.upsertSession(session);
+    // Scan current workspace first (fast path)
+    const workspaceDir = this.findWorkspaceProjectDir();
+    if (workspaceDir) {
+      const sessions = await this.discoverSessionsInProject(workspaceDir);
+      sessions.sort(
+        (a, b) =>
+          new Date(b.lastActivityAt).getTime() -
+          new Date(a.lastActivityAt).getTime(),
+      );
+      for (const session of sessions.slice(0, this.config.maxSessionsDisplayed)) {
+        this.store.upsertSession(session);
+      }
     }
+
+    // Then scan all other projects for cross-instance visibility
+    await this.scanAllProjects(workspaceDir);
   }
 
   async rescan(): Promise<void> {
     await this.initialScan();
+  }
+
+  /** Re-parses a single session file and updates the store. */
+  async rescanSession(sessionFilePath: string): Promise<void> {
+    const parts = sessionFilePath.split(path.sep);
+    const fileName = path.basename(sessionFilePath, '.jsonl');
+    // The project dir is the parent of the session file
+    const projDir = path.dirname(sessionFilePath);
+
+    try {
+      const session = await this.buildSession(sessionFilePath, projDir);
+      this.store.upsertSession(session);
+    } catch {
+      // Skip unparseable session
+    }
+  }
+
+  private async scanAllProjects(workspaceDir?: string): Promise<void> {
+    let dirs: string[];
+    try {
+      dirs = fs.readdirSync(this.claudeProjectsPath);
+    } catch {
+      return;
+    }
+
+    for (const dir of dirs) {
+      const fullPath = path.join(this.claudeProjectsPath, dir);
+      if (workspaceDir && fullPath === workspaceDir) continue; // already scanned
+
+      try {
+        const stat = fs.statSync(fullPath);
+        if (!stat.isDirectory()) continue;
+      } catch {
+        continue;
+      }
+
+      const sessions = await this.discoverSessionsInProject(fullPath);
+      sessions.sort(
+        (a, b) =>
+          new Date(b.lastActivityAt).getTime() -
+          new Date(a.lastActivityAt).getTime(),
+      );
+
+      // Limit foreign projects to 3 most recent sessions
+      const limit = Math.min(this.config.maxSessionsDisplayed, 3);
+      for (const session of sessions.slice(0, limit)) {
+        this.store.upsertSession(session);
+      }
+    }
   }
 
   async discoverNewSubagent(subagentFilePath: string): Promise<void> {
@@ -131,7 +183,8 @@ export class SessionDiscovery {
     sessionFilePath: string,
     projDir: string,
   ): Promise<Session> {
-    const { sessionMeta, taskSpawns } = await parseSession(sessionFilePath);
+    const { sessionMeta, taskSpawns, awaitingInput, pendingToolNames } =
+      await parseSession(sessionFilePath);
     const sessionId = sessionMeta.sessionId || path.basename(sessionFilePath, '.jsonl');
 
     // Discover subagents for this session
@@ -181,6 +234,8 @@ export class SessionDiscovery {
       subagents,
       filePath: sessionFilePath,
       activeSubagentCount: subagents.filter((s) => s.status === 'running').length,
+      awaitingInput,
+      pendingToolNames,
     };
   }
 

@@ -40,7 +40,7 @@ export class SessionStore extends EventEmitter implements Disposable {
     }
 
     this.emit(isNew ? 'session:discovered' : 'session:updated', session);
-    this.emitActiveCount();
+    this.emitCounts();
   }
 
   upsertSubagent(sessionId: string, subagent: Subagent): void {
@@ -74,7 +74,7 @@ export class SessionStore extends EventEmitter implements Disposable {
       this.emit('subagent:completed', { session, subagent });
     }
 
-    this.emitActiveCount();
+    this.emitCounts();
   }
 
   updateSubagentFromTail(
@@ -111,7 +111,7 @@ export class SessionStore extends EventEmitter implements Disposable {
       this.emit('subagent:completed', { session, subagent });
     }
 
-    this.emitActiveCount();
+    this.emitCounts();
   }
 
   getSessionsByProject(): Map<string, Session[]> {
@@ -133,6 +133,14 @@ export class SessionStore extends EventEmitter implements Disposable {
     return count;
   }
 
+  getAwaitingInputCount(): number {
+    let count = 0;
+    for (const session of this.sessions.values()) {
+      if (session.awaitingInput) count++;
+    }
+    return count;
+  }
+
   clearInactiveSessions(): void {
     for (const [id, session] of this.sessions) {
       if (!session.isActive && session.activeSubagentCount === 0) {
@@ -146,11 +154,20 @@ export class SessionStore extends EventEmitter implements Disposable {
   }
 
   private lastActiveCount = -1;
-  private emitActiveCount(): void {
-    const count = this.getActiveSubagentCount();
-    if (count !== this.lastActiveCount) {
-      this.lastActiveCount = count;
-      this.emit('activeCount:changed', count);
+  private lastAwaitingCount = -1;
+
+  private emitCounts(): void {
+    const activeCount = this.getActiveSubagentCount();
+    const awaitingCount = this.getAwaitingInputCount();
+
+    if (activeCount !== this.lastActiveCount) {
+      this.lastActiveCount = activeCount;
+      this.emit('activeCount:changed', activeCount);
+    }
+
+    if (awaitingCount !== this.lastAwaitingCount) {
+      this.lastAwaitingCount = awaitingCount;
+      this.emit('awaitingCount:changed', awaitingCount);
     }
   }
 

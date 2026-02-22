@@ -4,15 +4,27 @@ import {
   SubagentType,
   TaskSpawnInfo,
   ToolUseContentBlock,
+  ToolResultContentBlock,
 } from '../types';
 import { parseJsonlFile } from './jsonl-parser';
+import {
+  USER_INPUT_TOOL_NAMES,
+  TASK_LIKE_TOOL_NAMES,
+  AWAITING_INPUT_TIMEOUT_MS,
+} from '../constants';
 
 export async function parseSession(filePath: string): Promise<{
   sessionMeta: Partial<Session>;
   taskSpawns: TaskSpawnInfo[];
+  awaitingInput: boolean;
+  pendingToolNames: string[];
 }> {
   const lines = await parseJsonlFile(filePath);
   const taskSpawns: TaskSpawnInfo[] = [];
+  const pendingToolUses = new Map<
+    string,
+    { name: string; timestamp: string }
+  >();
 
   let sessionId = '';
   let cwd: string | undefined;
@@ -29,11 +41,15 @@ export async function parseSession(filePath: string): Promise<{
     if (!firstTimestamp && line.timestamp) firstTimestamp = line.timestamp;
     if (line.timestamp) lastTimestamp = line.timestamp;
 
-    // Find Task tool_use blocks in assistant messages
+    // Find tool_use blocks in assistant messages
     if (line.type === 'assistant' && line.message?.content && Array.isArray(line.message.content)) {
       for (const block of line.message.content) {
         if (block.type === 'tool_use') {
           const tu = block as ToolUseContentBlock;
+          pendingToolUses.set(tu.id, {
+            name: tu.name,
+            timestamp: line.timestamp,
+          });
           if (tu.name === 'Task') {
             const input = tu.input;
             taskSpawns.push({
@@ -45,6 +61,36 @@ export async function parseSession(filePath: string): Promise<{
             });
           }
         }
+      }
+    }
+
+    // Remove resolved tool_uses when their results arrive
+    if (line.type === 'user' && line.message?.content && Array.isArray(line.message.content)) {
+      for (const block of line.message.content) {
+        if (block.type === 'tool_result') {
+          const tr = block as ToolResultContentBlock;
+          pendingToolUses.delete(tr.tool_use_id);
+        }
+      }
+    }
+  }
+
+  // Determine if the session is awaiting user input
+  let awaitingInput = false;
+  const pendingToolNames: string[] = [];
+  const now = Date.now();
+
+  for (const [, pending] of pendingToolUses) {
+    if (TASK_LIKE_TOOL_NAMES.has(pending.name)) continue; // subagent running, not user-blocking
+
+    if (USER_INPUT_TOOL_NAMES.has(pending.name)) {
+      awaitingInput = true;
+      pendingToolNames.push(pending.name);
+    } else {
+      const pendingSince = new Date(pending.timestamp).getTime();
+      if (now - pendingSince > AWAITING_INPUT_TIMEOUT_MS) {
+        awaitingInput = true;
+        pendingToolNames.push(pending.name);
       }
     }
   }
@@ -60,6 +106,8 @@ export async function parseSession(filePath: string): Promise<{
       filePath,
     },
     taskSpawns,
+    awaitingInput,
+    pendingToolNames,
   };
 }
 

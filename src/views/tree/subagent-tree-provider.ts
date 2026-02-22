@@ -57,7 +57,7 @@ export class SubagentTreeProvider
     switch (element.kind) {
       case 'project':
         return element.sessions
-          .filter((s) => s.subagents.length > 0 || s.isActive)
+          .filter((s) => s.subagents.length > 0 || s.isActive || s.awaitingInput)
           .map((session) => ({
             kind: 'session' as const,
             session,
@@ -94,9 +94,13 @@ export class SubagentTreeProvider
     );
 
     const totalActive = sessions.reduce((sum, s) => sum + s.activeSubagentCount, 0);
+    const totalAwaiting = sessions.filter((s) => s.awaitingInput).length;
     const branch = sessions[0]?.gitBranch;
 
-    if (totalActive > 0) {
+    if (totalAwaiting > 0) {
+      item.description = `${branch ?? ''} | ${totalAwaiting} awaiting input`;
+      item.iconPath = new vscode.ThemeIcon('bell', new vscode.ThemeColor('charts.orange'));
+    } else if (totalActive > 0) {
       item.description = `${branch ?? ''} | ${totalActive} active`;
       item.iconPath = new vscode.ThemeIcon('repo', new vscode.ThemeColor('charts.green'));
     } else {
@@ -108,6 +112,7 @@ export class SubagentTreeProvider
     item.tooltip = new vscode.MarkdownString(
       `**${repoName}**\n\n` +
         `- Sessions: ${sessions.length}\n` +
+        `- Awaiting input: ${totalAwaiting}\n` +
         `- Active agents: ${totalActive}\n` +
         (branch ? `- Branch: ${branch}` : ''),
     );
@@ -122,22 +127,27 @@ export class SubagentTreeProvider
 
     const item = new vscode.TreeItem(
       label,
-      session.subagents.length > 0
+      session.subagents.length > 0 || session.awaitingInput
         ? vscode.TreeItemCollapsibleState.Expanded
         : vscode.TreeItemCollapsibleState.Collapsed,
     );
 
     const agentCount = session.subagents.length;
     const activeCount = session.activeSubagentCount;
-    if (activeCount > 0) {
+
+    if (session.awaitingInput) {
+      const toolInfo = session.pendingToolNames.length > 0
+        ? ` (${session.pendingToolNames.join(', ')})`
+        : '';
+      item.description = `AWAITING INPUT${toolInfo}`;
+      item.iconPath = new vscode.ThemeIcon('bell-dot', new vscode.ThemeColor('charts.orange'));
+    } else if (activeCount > 0) {
       item.description = `${activeCount} running, ${agentCount} total`;
+      item.iconPath = new vscode.ThemeIcon('comment-discussion', new vscode.ThemeColor('charts.green'));
     } else {
       item.description = `${agentCount} agent${agentCount !== 1 ? 's' : ''}`;
+      item.iconPath = new vscode.ThemeIcon('comment-discussion');
     }
-
-    item.iconPath = activeCount > 0
-      ? new vscode.ThemeIcon('comment-discussion', new vscode.ThemeColor('charts.green'))
-      : new vscode.ThemeIcon('comment-discussion');
 
     item.contextValue = 'session';
     item.tooltip = new vscode.MarkdownString(
@@ -145,6 +155,7 @@ export class SubagentTreeProvider
         `- Branch: ${branch}\n` +
         `- Started: ${formatTimestamp(session.startedAt)}\n` +
         `- Last activity: ${formatTimestamp(session.lastActivityAt)}\n` +
+        (session.awaitingInput ? `- **Awaiting input**: ${session.pendingToolNames.join(', ') || 'yes'}\n` : '') +
         `- Active: ${activeCount}\n` +
         `- Total: ${agentCount}`,
     );

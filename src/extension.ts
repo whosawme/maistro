@@ -66,10 +66,14 @@ export function activate(context: vscode.ExtensionContext): void {
     webviewManager.updateIfOpen(subagent.agentId);
   });
   store.on('activeCount:changed', (count: number) => {
-    statusBar.update(count);
-    treeView.badge = count > 0
-      ? { value: count, tooltip: `${count} active agent${count !== 1 ? 's' : ''}` }
+    statusBar.update(count, store.getAwaitingInputCount());
+  });
+  store.on('awaitingCount:changed', (awaitingCount: number) => {
+    statusBar.update(store.getActiveSubagentCount(), awaitingCount);
+    treeView.badge = awaitingCount > 0
+      ? { value: awaitingCount, tooltip: `${awaitingCount} agent${awaitingCount !== 1 ? 's' : ''} awaiting input` }
       : undefined;
+    treeProvider.refresh();
   });
 
   // Config changes
@@ -88,10 +92,11 @@ export function activate(context: vscode.ExtensionContext): void {
   // Initial scan
   discovery.initialScan().then(() => {
     treeProvider.refresh();
-    const count = store.getActiveSubagentCount();
-    statusBar.update(count);
-    treeView.badge = count > 0
-      ? { value: count, tooltip: `${count} active agent${count !== 1 ? 's' : ''}` }
+    const activeCount = store.getActiveSubagentCount();
+    const awaitingCount = store.getAwaitingInputCount();
+    statusBar.update(activeCount, awaitingCount);
+    treeView.badge = awaitingCount > 0
+      ? { value: awaitingCount, tooltip: `${awaitingCount} agent${awaitingCount !== 1 ? 's' : ''} awaiting input` }
       : undefined;
   });
 }

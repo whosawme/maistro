@@ -37,9 +37,20 @@
           "id": "maistro.sessionTree",
           "name": "Sessions & Subagents",
           "type": "tree"
+        },
+        {
+          "id": "maistro.todoTree",
+          "name": "Todos",
+          "type": "tree"
         }
       ]
     },
+    "viewsWelcome": [
+      {
+        "view": "maistro.todoTree",
+        "contents": "No active todos.\nTodos will appear here when Claude Code uses the TodoWrite tool."
+      }
+    ],
     "commands": [
       {
         "command": "maistro.refresh",
@@ -67,6 +78,18 @@
         "command": "maistro.copyAgentId",
         "title": "Copy Agent ID",
         "category": "Maistro"
+      },
+      {
+        "command": "maistro.openTodoHistory",
+        "title": "Open Todo History",
+        "icon": "$(history)",
+        "category": "Maistro"
+      },
+      {
+        "command": "maistro.clearCompletedTodos",
+        "title": "Clear Completed Todos",
+        "icon": "$(clear-all)",
+        "category": "Maistro"
       }
     ],
     "menus": {
@@ -79,6 +102,16 @@
         {
           "command": "maistro.clearSessions",
           "when": "view == maistro.sessionTree",
+          "group": "navigation"
+        },
+        {
+          "command": "maistro.openTodoHistory",
+          "when": "view == maistro.todoTree",
+          "group": "navigation"
+        },
+        {
+          "command": "maistro.clearCompletedTodos",
+          "when": "view == maistro.todoTree",
           "group": "navigation"
         }
       ],
@@ -97,6 +130,11 @@
           "command": "maistro.copyAgentId",
           "when": "viewItem == subagent",
           "group": "2_clipboard"
+        },
+        {
+          "command": "maistro.openTodoHistory",
+          "when": "viewItem == todoSession",
+          "group": "inline"
         }
       ]
     },

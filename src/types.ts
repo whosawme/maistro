@@ -144,6 +144,7 @@ export interface Session {
   activeSubagentCount: number;
   awaitingInput: boolean;
   pendingToolNames: string[];
+  isCompacting: boolean;
 }
 
 export interface TaskSpawnInfo {
@@ -152,6 +153,33 @@ export interface TaskSpawnInfo {
   description: string;
   prompt: string;
   timestamp: string;
+}
+
+// ============================================================
+// Todo Types
+// ============================================================
+
+export type TodoStatus = 'pending' | 'in_progress' | 'completed';
+
+export interface TodoItem {
+  content: string;
+  status: TodoStatus;
+  activeForm: string;
+}
+
+export interface TodoSnapshot {
+  id: string;
+  sessionId: string;
+  projectPath: string;
+  timestamp: string;
+  todos: TodoItem[];
+}
+
+export interface SessionTodos {
+  sessionId: string;
+  projectPath: string;
+  current: TodoSnapshot;
+  history: TodoSnapshot[];
 }
 
 // ============================================================

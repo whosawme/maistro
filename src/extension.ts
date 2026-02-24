@@ -4,6 +4,9 @@ import { TranscriptWatcher } from './monitoring/transcript-watcher';
 import { SessionDiscovery } from './monitoring/session-discovery';
 import { SubagentTreeProvider } from './views/tree/subagent-tree-provider';
 import { WebviewPanelManager } from './views/webview/webview-panel-manager';
+import { TodoStore } from './state/todo-store';
+import { TodoTreeProvider } from './views/tree/todo-tree-provider';
+import { TodoHistoryPanelManager } from './views/webview/todo-history-panel-manager';
 import { StatusBarManager } from './views/statusbar/status-bar-manager';
 import { resolveClaudeProjectsPath } from './utils/paths';
 import { MaistroConfig } from './types';
@@ -14,16 +17,24 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // Core
   const store = new SessionStore();
+  const todoStore = new TodoStore(context);
   const discovery = new SessionDiscovery(claudeProjectsPath, store, config);
+  discovery.setTodoStore(todoStore);
   const watcher = new TranscriptWatcher(claudeProjectsPath, store, discovery, config);
 
   // Views
-  const treeProvider = new SubagentTreeProvider(store);
+  const treeProvider = new SubagentTreeProvider(store, context.extensionUri);
   const treeView = vscode.window.createTreeView('maistro.sessionTree', {
     treeDataProvider: treeProvider,
     showCollapseAll: true,
   });
   const webviewManager = new WebviewPanelManager(context, store);
+  const todoTreeProvider = new TodoTreeProvider(todoStore);
+  const todoTreeView = vscode.window.createTreeView('maistro.todoTree', {
+    treeDataProvider: todoTreeProvider,
+    showCollapseAll: true,
+  });
+  const todoHistoryManager = new TodoHistoryPanelManager(todoStore);
   const statusBar = new StatusBarManager();
 
   // Commands
@@ -47,6 +58,21 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('maistro.copyAgentId', (agentId: string) => {
       vscode.env.clipboard.writeText(agentId);
       vscode.window.showInformationMessage(`Copied agent ID: ${agentId}`);
+    }),
+    vscode.commands.registerCommand('maistro.openTodoHistory', (sessionId?: string) => {
+      if (sessionId) {
+        todoHistoryManager.openOrReveal(sessionId);
+      } else {
+        // Open history for the first active session
+        const sessions = todoStore.getActiveTodoSessions();
+        if (sessions.length > 0) {
+          todoHistoryManager.openOrReveal(sessions[0]!.sessionId);
+        }
+      }
+    }),
+    vscode.commands.registerCommand('maistro.clearCompletedTodos', () => {
+      todoStore.clearCompleted();
+      todoTreeProvider.refresh();
     }),
   );
 
@@ -76,6 +102,15 @@ export function activate(context: vscode.ExtensionContext): void {
     treeProvider.refresh();
   });
 
+  // Wire todo state changes
+  todoStore.on('todos:updated', (entry: { sessionId: string }) => {
+    todoTreeProvider.refresh();
+    todoHistoryManager.updateIfOpen(entry.sessionId);
+  });
+  todoStore.on('todos:cleared', () => {
+    todoTreeProvider.refresh();
+  });
+
   // Config changes
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
@@ -87,11 +122,12 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   // Disposables
-  context.subscriptions.push(treeView, watcher, statusBar, webviewManager, store);
+  context.subscriptions.push(treeView, todoTreeView, watcher, statusBar, webviewManager, todoHistoryManager, todoStore, store);
 
   // Initial scan
   discovery.initialScan().then(() => {
     treeProvider.refresh();
+    todoTreeProvider.refresh();
     const activeCount = store.getActiveSubagentCount();
     const awaitingCount = store.getAwaitingInputCount();
     statusBar.update(activeCount, awaitingCount);

@@ -1,0 +1,12 @@
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Top surface -->
+  <rect x="2" y="1" width="12" height="2" rx="0.5" fill="#C5C5C5" opacity="0.8"/>
+  <!-- Top arrow pressing down -->
+  <path d="M8 4.5 L10.5 4.5 L8 7 L5.5 4.5 Z" fill="#C5C5C5" opacity="0.6"/>
+  <!-- Center compression line -->
+  <line x1="4" y1="8" x2="12" y2="8" stroke="#C5C5C5" stroke-width="0.75" stroke-dasharray="1.5 1" opacity="0.4"/>
+  <!-- Bottom arrow pressing up -->
+  <path d="M8 11.5 L10.5 11.5 L8 9 L5.5 11.5 Z" fill="#C5C5C5" opacity="0.6"/>
+  <!-- Bottom surface -->
+  <rect x="2" y="13" width="12" height="2" rx="0.5" fill="#C5C5C5" opacity="0.8"/>
+</svg>

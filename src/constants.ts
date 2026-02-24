@@ -18,3 +18,6 @@ export const TASK_LIKE_TOOL_NAMES = new Set(['Task']);
  * as likely blocked on user permission approval.
  */
 export const AWAITING_INPUT_TIMEOUT_MS = 30_000;
+
+export const TODO_TREE_VIEW_ID = 'maistro.todoTree';
+export const TODO_HISTORY_WEBVIEW_TYPE = 'maistroTodoHistory';

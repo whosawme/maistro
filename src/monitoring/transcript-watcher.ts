@@ -30,12 +30,18 @@ export class TranscriptWatcher implements vscode.Disposable {
     const subagentWatcher = vscode.workspace.createFileSystemWatcher(subagentPattern);
 
     subagentWatcher.onDidCreate((uri) => {
-      if (isCompactAgent(uri.fsPath)) return;
+      if (isCompactAgent(uri.fsPath)) {
+        this.onCompactAgentEvent(uri.fsPath);
+        return;
+      }
       this.onNewSubagentFile(uri.fsPath);
     });
 
     subagentWatcher.onDidChange((uri) => {
-      if (isCompactAgent(uri.fsPath)) return;
+      if (isCompactAgent(uri.fsPath)) {
+        this.onCompactAgentEvent(uri.fsPath);
+        return;
+      }
       this.onSubagentFileChanged(uri.fsPath);
     });
 
@@ -79,6 +85,18 @@ export class TranscriptWatcher implements vscode.Disposable {
         this.store.updateSubagentFromTail(sessionId, agentId, data);
       });
       this.tailers.set(filePath, tailer);
+    }
+  }
+
+  private onCompactAgentEvent(filePath: string): void {
+    // Compact agent created/changed → session is compacting. Re-scan the parent session.
+    const sessionId = extractSessionIdFromPath(filePath);
+    if (!sessionId) return;
+
+    const session = this.store.getSession(sessionId);
+    if (session) {
+      session.isCompacting = true;
+      this.store.upsertSession(session);
     }
   }
 

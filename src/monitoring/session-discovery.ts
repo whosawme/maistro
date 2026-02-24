@@ -2,17 +2,24 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { SessionStore } from '../state/session-store';
+import { TodoStore } from '../state/todo-store';
 import { parseSession } from '../parsing/session-parser';
 import { parseSubagent } from '../parsing/subagent-parser';
 import { Session, Subagent, MaistroConfig, TaskSpawnInfo } from '../types';
 import { isCompactAgent, pathToProjectDir } from '../utils/paths';
 
 export class SessionDiscovery {
+  private todoStore?: TodoStore;
+
   constructor(
     private claudeProjectsPath: string,
     private store: SessionStore,
     private config: MaistroConfig,
   ) {}
+
+  setTodoStore(todoStore: TodoStore): void {
+    this.todoStore = todoStore;
+  }
 
   async initialScan(): Promise<void> {
     // Scan current workspace first (fast path)
@@ -39,10 +46,10 @@ export class SessionDiscovery {
 
   /** Re-parses a single session file and updates the store. */
   async rescanSession(sessionFilePath: string): Promise<void> {
-    const parts = sessionFilePath.split(path.sep);
-    const fileName = path.basename(sessionFilePath, '.jsonl');
-    // The project dir is the parent of the session file
     const projDir = path.dirname(sessionFilePath);
+
+    // Only process top-level session files (direct children of a project dir)
+    if (path.dirname(projDir) !== this.claudeProjectsPath) return;
 
     try {
       const session = await this.buildSession(sessionFilePath, projDir);
@@ -183,9 +190,14 @@ export class SessionDiscovery {
     sessionFilePath: string,
     projDir: string,
   ): Promise<Session> {
-    const { sessionMeta, taskSpawns, awaitingInput, pendingToolNames } =
+    const { sessionMeta, taskSpawns, awaitingInput, pendingToolNames, todoSnapshots } =
       await parseSession(sessionFilePath);
     const sessionId = sessionMeta.sessionId || path.basename(sessionFilePath, '.jsonl');
+
+    // Feed todo snapshots into the todo store
+    if (this.todoStore && todoSnapshots.length > 0) {
+      this.todoStore.ingestSnapshots(sessionId, projDir, todoSnapshots);
+    }
 
     // Discover subagents for this session
     const subagentsDir = path.join(projDir, sessionId, 'subagents');
@@ -222,6 +234,29 @@ export class SessionDiscovery {
       // ignore
     }
 
+    // Check for active compaction (acompact agent file modified recently)
+    let isCompacting = false;
+    if (fs.existsSync(subagentsDir)) {
+      try {
+        const compactFiles = fs
+          .readdirSync(subagentsDir)
+          .filter((f) => isCompactAgent(f));
+        for (const cf of compactFiles) {
+          try {
+            const stat = fs.statSync(path.join(subagentsDir, cf));
+            if (Date.now() - stat.mtimeMs < 30_000) {
+              isCompacting = true;
+              break;
+            }
+          } catch {
+            // ignore
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
     return {
       sessionId,
       projectPath: projDir,
@@ -236,6 +271,7 @@ export class SessionDiscovery {
       activeSubagentCount: subagents.filter((s) => s.status === 'running').length,
       awaitingInput,
       pendingToolNames,
+      isCompacting,
     };
   }
 

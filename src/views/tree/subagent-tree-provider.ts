@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { SessionStore } from '../../state/session-store';
 import { Session, Subagent, ToolCall, SubagentStatus } from '../../types';
 import { formatElapsed, formatTimestamp, formatRelativeTime, formatTokenCount } from '../../utils/time';
@@ -17,7 +18,14 @@ export class SubagentTreeProvider
   >();
   readonly onDidChangeTreeData = this._onDidChange.event;
 
-  constructor(private store: SessionStore) {}
+  private compactingIcon: { light: vscode.Uri; dark: vscode.Uri };
+
+  constructor(private store: SessionStore, extensionUri: vscode.Uri) {
+    this.compactingIcon = {
+      light: vscode.Uri.joinPath(extensionUri, 'resources', 'icons', 'compacting-light.svg'),
+      dark: vscode.Uri.joinPath(extensionUri, 'resources', 'icons', 'compacting-dark.svg'),
+    };
+  }
 
   refresh(): void {
     this._onDidChange.fire(undefined);
@@ -135,7 +143,10 @@ export class SubagentTreeProvider
     const agentCount = session.subagents.length;
     const activeCount = session.activeSubagentCount;
 
-    if (session.awaitingInput) {
+    if (session.isCompacting) {
+      item.description = 'COMPACTING...';
+      item.iconPath = this.compactingIcon;
+    } else if (session.awaitingInput) {
       const toolInfo = session.pendingToolNames.length > 0
         ? ` (${session.pendingToolNames.join(', ')})`
         : '';

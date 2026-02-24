@@ -3,6 +3,7 @@ import {
   Session,
   SubagentType,
   TaskSpawnInfo,
+  TodoSnapshot,
   ToolUseContentBlock,
   ToolResultContentBlock,
 } from '../types';
@@ -18,9 +19,11 @@ export async function parseSession(filePath: string): Promise<{
   taskSpawns: TaskSpawnInfo[];
   awaitingInput: boolean;
   pendingToolNames: string[];
+  todoSnapshots: TodoSnapshot[];
 }> {
   const lines = await parseJsonlFile(filePath);
   const taskSpawns: TaskSpawnInfo[] = [];
+  const todoSnapshots: TodoSnapshot[] = [];
   const pendingToolUses = new Map<
     string,
     { name: string; timestamp: string }
@@ -59,6 +62,27 @@ export async function parseSession(filePath: string): Promise<{
               prompt: (input['prompt'] as string) ?? '',
               timestamp: line.timestamp,
             });
+          }
+          if (tu.name === 'TodoWrite') {
+            const rawTodos = tu.input['todos'] as
+              | Array<{ content?: string; status?: string; activeForm?: string }>
+              | undefined;
+            if (Array.isArray(rawTodos)) {
+              todoSnapshots.push({
+                id: tu.id,
+                sessionId,
+                projectPath: '',
+                timestamp: line.timestamp,
+                todos: rawTodos.map((t) => ({
+                  content: (t.content as string) ?? '',
+                  status:
+                    t.status === 'completed' || t.status === 'in_progress' || t.status === 'pending'
+                      ? t.status
+                      : 'pending',
+                  activeForm: (t.activeForm as string) ?? '',
+                })),
+              });
+            }
           }
         }
       }
@@ -108,6 +132,7 @@ export async function parseSession(filePath: string): Promise<{
     taskSpawns,
     awaitingInput,
     pendingToolNames,
+    todoSnapshots,
   };
 }
 
